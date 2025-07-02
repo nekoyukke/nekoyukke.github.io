@@ -1,0 +1,24 @@
+.head {
+    background: #a0a0ff;
+}
+
+.h1 {
+    /*水平方向の中央揃え*/
+    text-align: center;
+    /*hiの色*/
+    background: #a0a0ff;
+}
+
+.center_box {
+    text-align: center;
+}
+
+.right_sentence {
+    display: inline-block;
+    text-align: left;
+}
+.h2 {
+    /*中央*/
+    text-align: center;
+    background: #a0a0ff;
+}
