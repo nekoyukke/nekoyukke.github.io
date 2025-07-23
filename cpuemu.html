@@ -144,8 +144,10 @@
           <button id="clock-btn" type="button">クロック</button>
           <button id="reset-btn" type="button">ストップ&リセット</button>
         </div>
-        <div class="controls">
+        <div class="controls" style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
+          <div>VRAM位置</div>
           <input id="VRAMstrat" type="number" value="3840" min="0" step="1">
+          <div>番地</div>
         </div>
       </div>
       <canvas id="vram-canvas" width="32" height="32" style="border: 1px solid black;"></canvas>
