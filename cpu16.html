@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>仮想マシン命令セット説明書</title>
+  <style>
+    body { font-family: monospace; line-height: 1.6; padding: 20px; background: #f8f8f8; color: #333; }
+    h1, h2 { border-bottom: 1px solid #ccc; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1em; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; }
+    th { background: #eee; }
+    code { background: #eee; padding: 2px 4px; }
+    pre { background: #eee; padding: 10px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+
+<h1>仮想マシン命令セット説明書</h1>
+
+<p><strong>アーキテクチャ:</strong> 16bitハーバード</p>
+<p><strong>レジスタ形式:</strong> R0 ～ R15</p>
+<p><strong>即値:</strong> <code>#1234</code> のように <code>#</code> で表記</p>
+<p><strong>メモリアドレス:</strong> <code>[1000]</code> のように <code>[]</code> で表記</p>
+<p><strong>ラベル:</strong> <code>label:</code> のようにコロンで終わる</p>
+
+<h2>演算命令</h2>
+<table>
+  <tr><th>命令</th><th>説明</th></tr>
+  <tr><td>ADD A, B, C</td><td>C = A + B（加算）</td></tr>
+  <tr><td>SUB A, B, C</td><td>C = A - B（減算）</td></tr>
+  <tr><td>MUL A, B, C</td><td>C = A * B（乗算）</td></tr>
+  <tr><td>DIV A, B, C</td><td>C = A / B（除算、整数除算）</td></tr>
+  <tr><td>MOD A, B, C</td><td>C = A % B（剰余）</td></tr>
+  <tr><td>INC A</td><td>A = A + 1（インクリメント）</td></tr>
+  <tr><td>DEC A</td><td>A = A - 1（デクリメント）</td></tr>
+</table>
+
+<h2>制御フロー命令</h2>
+<table>
+  <tr><th>命令</th><th>説明</th></tr>
+  <tr><td>JMP label</td><td>無条件ジャンプ（指定ラベルへ）</td></tr>
+  <tr><td>JC label</td><td>キャリーフラグが立っていればジャンプ</td></tr>
+  <tr><td>JNC label</td><td>キャリーフラグが立っていなければジャンプ</td></tr>
+  <tr><td>JZ label</td><td>ゼロフラグが立っていればジャンプ</td></tr>
+  <tr><td>JNZ label</td><td>ゼロフラグが立っていなければジャンプ</td></tr>
+  <tr><td>CALL label</td><td>サブルーチン呼び出し（スタックに戻り先をPush）</td></tr>
+  <tr><td>RET</td><td>サブルーチンからの復帰（スタックから戻り先をPop）</td></tr>
+  <tr><td>NOP</td><td>何もしない命令（No Operation）</td></tr>
+</table>
+
+<h2>比較・転送命令</h2>
+<table>
+  <tr><th>命令</th><th>説明</th></tr>
+  <tr><td>CMP A, B</td><td>A - B を計算し、結果をフラグに設定（レジスタは変更しない）</td></tr>
+  <tr><td>MOV A, B</td><td>A ← B（値の代入）</td></tr>
+</table>
+
+<h2>入出力命令</h2>
+<table>
+  <tr><th>命令</th><th>説明</th></tr>
+  <tr><td>OUT A, B</td><td>値 A を B ポートに出力（標準出力やログなど）</td></tr>
+  <tr><td>DRAW X, Y, COLOR</td><td>画面に点を描画する（X, Y 座標、COLORが1以上で色付き）</td></tr>
+</table>
+
+<h2>オペランド種別（使える形式）</h2>
+<table>
+  <tr><th>種別</th><th>記法</th><th>例</th></tr>
+  <tr><td>レジスタ</td><td>R0 ～ R15</td><td><code>ADD R1, R2, R3</code></td></tr>
+  <tr><td>即値</td><td>#数値</td><td><code>MOV R0, #10</code></td></tr>
+  <tr><td>メモリアドレス</td><td>[数値]</td><td><code>MOV R0, [1024]</code></td></tr>
+  <tr><td>ラベル</td><td>文字列:</td><td><code>loop:</code>, <code>CALL loop</code></td></tr>
+</table>
+
+<h2>DRAW 命令仕様（特殊命令）</h2>
+<pre>
+DRAW x, y, c
+
+x: X座標（0〜画面幅）
+y: Y座標（0〜画面高さ）
+c: 0なら何もしない、1以上でピクセルを塗る
+
+例: DRAW #10, #5, #1 → (10,5) にドットを打つ
+</pre>
+
+<h2>使用例</h2>
+<pre>
+MOV R1, #0
+MOV R2, #0
+INC R1
+INC R2
+CMP #31, R1
+JC end
+DRAW R1, R2, #1
+JMP 2
+end:
+</pre>
+
+</body>
+</html>
