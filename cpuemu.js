@@ -547,6 +547,7 @@ function executeInstruction(mnemonic, args, linevalue) {
             let x = getValue(args[0]);
             let y = getValue(args[1]);
             let start = VRAM_START + (x <= 15 ? 0 : 1) + y * 2;
+            accessedMemory.add(start);
             if (x <= 15) {
                 x = x;
             }
