@@ -92,7 +92,7 @@ for (let i = 0; i < 16; i++) {
 function display() {
     // レジスタ
     for (let i = 0; i < 16; i++) {
-        const el = document.getElementById("R" + i);
+        const el = registers[i];
         if (el) {
             if (accessedRegisters.has(i)) {
                 el.style.backgroundColor = "lightpink";
@@ -233,21 +233,28 @@ function getValue(operand) {
 function setValue(operand, value) {
     if (operand.startsWith("R")) {
         const regIndex = parseInt(operand.substring(1));
+        if (isNaN(regIndex))
+            throw new Error(`無効なレジスタ: ${operand}`);
         accessedRegisters.add(regIndex);
         registr[regIndex] = value;
     }
     else if (operand.startsWith("[") && operand.endsWith("]")) {
-        const addr = operand.slice(1, -1);
-        if (addr.startsWith("R")) {
-            const regIndex = parseInt(addr.substring(1));
+        const inside = operand.slice(1, -1);
+        if (inside.startsWith("R")) {
+            const regIndex = parseInt(inside.substring(1));
+            if (isNaN(regIndex))
+                throw new Error(`無効なレジスタ: ${inside}`);
             accessedRegisters.add(regIndex);
-            accessedMemory.add(registr[regIndex]);
-            memory[registr[regIndex]] = value;
+            const addr = registr[regIndex];
+            accessedMemory.add(addr);
+            memory[addr] = value;
         }
         else {
-            const addr1 = parseInt(addr);
-            accessedMemory.add(addr1);
-            memory[addr1] = value;
+            const addr = parseInt(inside);
+            if (isNaN(addr))
+                throw new Error(`無効なアドレス: ${inside}`);
+            accessedMemory.add(addr);
+            memory[addr] = value;
         }
     }
     else {
@@ -630,8 +637,8 @@ function clocks() {
     var _a;
     // all移行
     VRAM_START = parseInt(VRAMstrat.value);
-    accessedallMemory = union(new Set(accessedMemory3), accessedallRegister);
-    accessedallRegister = union(new Set(accessedMemory3), accessedallRegister);
+    accessedallMemory = union(new Set(accessedMemory3), accessedallMemory);
+    accessedallRegister = union(new Set(accessedallRegister), accessedallRegister);
     accessedallout = union(new Set(accessedouts3), accessedallout);
     // 移る2
     accessedMemory3 = new Set(accessedMemory2);
