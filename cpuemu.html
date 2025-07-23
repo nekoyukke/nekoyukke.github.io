@@ -192,8 +192,8 @@
       <div class="out" id="out15"></div>
     </div>
     <h4>メモリ</h4>
-    <button onclick="memStart -= 256; renderMemoryRow(memStart)">←前へ</button>
-    <button onclick="memStart += 256; renderMemoryRow(memStart)">次へ→</button>
+    <button onclick="if(memStart!=0){memStart -= 256;} renderMemoryRow(memStart)" type="button">←前へ</button>
+    <button onclick="if(memStart!=0xFFFF){memStart += 256;} renderMemoryRow(memStart)" type="button">次へ→</button>
     <div class="memory-container">
       <div id="memory-view" class="memory-view"></div>
     </div>
