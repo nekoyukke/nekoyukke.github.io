@@ -54,6 +54,9 @@
           background-color: #f0f0f0;
           border-radius: 4px;
         }
+        .memory-container {
+          overflow-x: auto;
+        }
         canvas {
           image-rendering: crisp-edges;
           image-rendering: pixelated;
@@ -128,10 +131,11 @@
       <div class="out" id="out14"></div>
       <div class="out" id="out15"></div>
     </div>
-    <h4>メモリー</h4>
     <button onclick="memStart -= 256; renderMemoryRow(memStart)">←前へ</button>
     <button onclick="memStart += 256; renderMemoryRow(memStart)">次へ→</button>
-    <div id="memory-view" class="memory-view"></div>
+    <div class="memory-container">
+      <div id="memory-view" class="memory-view"></div>
+    </div>
   <!-- コンパイルされたJavaScriptを読み込む -->
     <script src="cpuemu.js"></script>
 </body>
