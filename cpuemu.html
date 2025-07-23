@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>CPUエミュレータ</title>
+    <style>
+        .registers {
+          display: grid;
+          flex-wrap: wrap;
+          gap: 4px;
+          font-family: monospace;
+          font-size: 14px;
+          grid-template-columns: repeat(16, 1fr)
+        }
+        .reg {
+          border: 1px solid #ccc;
+          padding: 2px 2px;
+          min-width: 50px;
+          text-align: center;
+          background-color: #f0f0f0;
+          border-radius: 4px;
+        }
+        
+        .outs {
+          display: grid;
+          flex-wrap: wrap;
+          gap: 4px;
+          font-family: monospace;
+          font-size: 14px;
+          grid-template-columns: repeat(16, 1fr)
+        }
+        .out {
+          border: 1px solid #ccc;
+          padding: 2px 2px;
+          min-width: 50px;
+          text-align: center;
+          background-color: #f0f0f0;
+          border-radius: 4px;
+        }
+        .memory-view {
+          display: grid;
+          flex-wrap: wrap;
+          gap: 4px;
+          font-family: monospace;
+          font-size: 14px;
+          grid-template-columns: repeat(16, 1fr)
+        }
+        
+        .mem-cell {
+          border: 1px solid #ccc;
+          padding: 2px 2px;
+          min-width: 50px;
+          text-align: center;
+          background-color: #f0f0f0;
+          border-radius: 4px;
+        }
+        canvas {
+          image-rendering: crisp-edges;
+          image-rendering: pixelated;
+        }
+        #container {
+          display: flex;
+          align-items: flex-start; /* 上端揃え */
+          gap: 20px; /* 左右のスペース */
+        }
+
+        #left-pane {
+          display: flex;
+          flex-direction: column;
+        }
+    </style>
+</head>
+<body>
+    <h1>CPUエミュレータ</h1>
+    <div id="container">
+      <div id="left-pane">
+        <textarea id="input-box" rows="10" cols="40" placeholder="MOV R1,#1&#10;ADD R1,R1,R1"></textarea><br>
+        <div class="controls">
+          <button id="submit-btn">実行</button>
+          <input id="clock-speed" type="number" value="4" min="0.1" step="0.1">
+          <button id="clock-btn">クロック</button>
+          <button id="reset-btn">ストップ&リセット</button>
+        </div>
+        <div class="controls">
+          <input id="VRAMstrat" type="number" value="3840" min="0" step="1">
+        </div>
+      </div>
+      <canvas id="vram-canvas" width="32" height="32" style="border: 1px solid black;"></canvas>
+    </div>
+
+
+    <h2>レジスタ</h2>
+    <div class="registers">
+      <div class="reg" id="R0"></div>
+      <div class="reg" id="R1"></div>
+      <div class="reg" id="R2"></div>
+      <div class="reg" id="R3"></div>
+      <div class="reg" id="R4"></div>
+      <div class="reg" id="R5"></div>
+      <div class="reg" id="R6"></div>
+      <div class="reg" id="R7"></div>
+      <div class="reg" id="R8"></div>
+      <div class="reg" id="R9"></div>
+      <div class="reg" id="R10"></div>
+      <div class="reg" id="R11"></div>
+      <div class="reg" id="R12"></div>
+      <div class="reg" id="R13"></div>
+      <div class="reg" id="R14"></div>
+      <div class="reg" id="R15"></div>
+    </div>
+    <h2  id="PC"></h2>
+    <h2>outputポート</h2>
+    <div class="outs">
+      <div class="out" id="out0"></div>
+      <div class="out" id="out1"></div>
+      <div class="out" id="out2"></div>
+      <div class="out" id="out3"></div>
+      <div class="out" id="out4"></div>
+      <div class="out" id="out5"></div>
+      <div class="out" id="out6"></div>
+      <div class="out" id="out7"></div>
+      <div class="out" id="out8"></div>
+      <div class="out" id="out9"></div>
+      <div class="out" id="out10"></div>
+      <div class="out" id="out11"></div>
+      <div class="out" id="out12"></div>
+      <div class="out" id="out13"></div>
+      <div class="out" id="out14"></div>
+      <div class="out" id="out15"></div>
+    </div>
+    <button onclick="memStart -= 256; renderMemoryRow(memStart)">←前へ</button>
+    <button onclick="memStart += 256; renderMemoryRow(memStart)">次へ→</button>
+    <div id="memory-view" class="memory-view"></div>
+  <!-- コンパイルされたJavaScriptを読み込む -->
+    <script src="cpuemu.js"></script>
+</body>
+</html>
