@@ -197,7 +197,6 @@ resetbutton.addEventListener("click", () => {
     nowread = 0;
     display();
 });
-// オペランドから値を取得する関数
 function getValue(operand) {
     if (operand.startsWith("#")) {
         // 即値
@@ -210,10 +209,21 @@ function getValue(operand) {
         return registr[regIndex];
     }
     else if (operand.startsWith("[") && operand.endsWith("]")) {
-        // メモリ参照
-        const addr = parseInt(operand.slice(1, -1));
-        accessedMemory.add(addr);
-        return memory[addr];
+        // []の中身を取り出す
+        const inside = operand.slice(1, -1);
+        if (inside.startsWith("R")) {
+            // [R0] のケース
+            const regIndex = parseInt(inside.substring(1));
+            accessedRegisters.add(regIndex);
+            accessedMemory.add(registr[regIndex]);
+            return memory[registr[regIndex]];
+        }
+        else {
+            // 直接メモリアドレス指定 [123]
+            const addr = parseInt(inside);
+            accessedMemory.add(addr);
+            return memory[addr];
+        }
     }
     else {
         throw new Error(`不明なオペランド: ${operand}`);
@@ -227,9 +237,18 @@ function setValue(operand, value) {
         registr[regIndex] = value;
     }
     else if (operand.startsWith("[") && operand.endsWith("]")) {
-        const addr = parseInt(operand.slice(1, -1));
-        accessedMemory.add(addr);
-        memory[addr] = value;
+        const addr = operand.slice(1, -1);
+        if (addr.startsWith("R")) {
+            const regIndex = parseInt(addr.substring(1));
+            accessedRegisters.add(regIndex);
+            accessedMemory.add(registr[regIndex]);
+            memory[registr[regIndex]] = value;
+        }
+        else {
+            const addr1 = parseInt(addr);
+            accessedMemory.add(addr1);
+            memory[addr1] = value;
+        }
     }
     else {
         throw new Error(`代入先が不明: ${operand}`);
