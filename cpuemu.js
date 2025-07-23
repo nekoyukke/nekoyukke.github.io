@@ -389,7 +389,7 @@ function executeInstruction(mnemonic, args, linevalue) {
                 throw new Error(`ラベル ${target} が見つかりません`);
             }
             PC = targetLine;
-            nowread = targetLine;
+            nowread = targetLine - 1;
             break;
         case "JC":
             if (args.length !== 1)
@@ -408,7 +408,7 @@ function executeInstruction(mnemonic, args, linevalue) {
                     throw new Error(`ラベル ${target} が見つかりません`);
                 }
                 PC = targetLine;
-                nowread = targetLine;
+                nowread = targetLine - 1;
             }
             else {
                 PC += 1;
@@ -431,7 +431,7 @@ function executeInstruction(mnemonic, args, linevalue) {
                     throw new Error(`ラベル ${target} が見つかりません`);
                 }
                 PC = targetLine;
-                nowread = targetLine;
+                nowread = targetLine - 1;
             }
             else {
                 PC += 1;
@@ -454,7 +454,7 @@ function executeInstruction(mnemonic, args, linevalue) {
                     throw new Error(`ラベル ${target} が見つかりません`);
                 }
                 PC = targetLine;
-                nowread = targetLine;
+                nowread = targetLine - 1;
             }
             else {
                 PC += 1;
@@ -477,7 +477,7 @@ function executeInstruction(mnemonic, args, linevalue) {
                     throw new Error(`ラベル ${target} が見つかりません`);
                 }
                 PC = targetLine;
-                nowread = targetLine;
+                nowread = targetLine - 1;
             }
             else {
                 PC += 1;
@@ -552,7 +552,7 @@ function executeInstruction(mnemonic, args, linevalue) {
                 x = x;
             }
             else {
-                x = x - 15;
+                x = x - 16;
             }
             let Rewrite = memory[start];
             if (getValue(args[2]) != 0) {
@@ -563,6 +563,46 @@ function executeInstruction(mnemonic, args, linevalue) {
             }
             memory[start] = Rewrite;
             break;
+        //INC,DEC
+        case "INC":
+            Carryflag = false;
+            Zeroflag = false;
+            if (args.length !== 1)
+                throw new Error("INC命令は引数1つ必須");
+            val = getValue(args[0]);
+            // オーバーフロー
+            if (val + 1 > 0xFFFF) {
+                Carryflag = true;
+            }
+            val += 1;
+            // ゼロフラグ
+            if ((val & 0xFFFF) == 0) {
+                Zeroflag = true;
+            }
+            setValue(args[0], val);
+            PC += 1;
+            break;
+        case "DEC":
+            Carryflag = false;
+            Zeroflag = false;
+            if (args.length !== 1)
+                throw new Error("DEC命令は引数3つ必須");
+            val = getValue(args[0]);
+            // キャリーフラグ
+            if (val < 1) {
+                Carryflag = true;
+            }
+            val -= 1;
+            // ゼロフラグ
+            if ((val & 0xFFFF) == 0) {
+                Zeroflag = true;
+            }
+            setValue(args[0], val);
+            PC += 1;
+            break;
+        case "NOP":
+            PC += 1;
+            break;
         default:
             throw new Error(`未対応命令: ${mnemonic}`);
     }
@@ -570,6 +610,7 @@ function executeInstruction(mnemonic, args, linevalue) {
 function clocks() {
     var _a;
     // all移行
+    VRAM_START = parseInt(VRAMstrat.value);
     accessedallMemory = union(new Set(accessedMemory3), accessedallRegister);
     accessedallRegister = union(new Set(accessedMemory3), accessedallRegister);
     accessedallout = union(new Set(accessedouts3), accessedallout);
@@ -601,17 +642,13 @@ function clocks() {
     const parts = nowvalue.split(/ (.+)/);
     const nowmnemonicop = parts[0];
     const nowmnemonicargs = ((_a = parts[1]) === null || _a === void 0 ? void 0 : _a.split(',')) || [];
-    if (!nowvalue.trim() || nowvalue.startsWith(';')) {
-        nowread += 1;
-    }
-    else if (nowvalue.trim().endsWith(":")) {
+    if (nowvalue.trim().endsWith(":")) {
         nowread += 1;
     }
     else {
         executeInstruction(nowmnemonicop, nowmnemonicargs, linevalue);
         nowread += 1;
     }
-    VRAM_START = parseInt(VRAMstrat.value);
     display();
 }
 button.addEventListener("click", () => {
