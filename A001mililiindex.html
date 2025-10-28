@@ -222,6 +222,9 @@ def conversion(Tokens:list[Token], mode:int):
                 out += "A1"
                 out += argsLoad(i.order[0], Register)
                 out += argsLoad(i.order[1], Register)
+            case "RNG":
+                out += "A20"
+                out += argsLoad(i.order[0], Register)
             case "HALT":
                 # OK
                 out += "A"
