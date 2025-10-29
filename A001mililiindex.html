@@ -6,7 +6,7 @@
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
     <style>
         body { font-family: sans-serif; margin: 40px; background: #fafafa; }
-        textarea, input , mode { width: 100%; margin-top: 8px; padding: 8px; }
+        textarea, input { width: 100%; margin-top: 8px; padding: 8px; }
         pre { background: #eee; padding: 12px; border-radius: 8px; }
         button { padding: 8px 16px; margin-top: 12px; cursor: pointer; }
     </style>
@@ -20,10 +20,19 @@ NAND r1,r0,r0
 ADDI r1,39
 ADDI r2,39
 ADD r3,r1,r2"></textarea>
-<textarea id="mode" rows="1" placeholder="0:バイナリ 1:コンマ付き 2:改行付き"></textarea>
-    <button id="run">解析する</button>
+    <textarea id="mode" rows="1" placeholder="0:バイナリ 1:コンマ付き 2:改行付き"></textarea>
+    <button id="ana">解析</button>
+    <button id="run">変換</button>
     <h2>結果:</h2>
     <pre id="output"></pre>
+    <button id="Emulate">エミュレート</button>
+    <button id="Reset">エミュレートリセット</button>
+    <h2>結果:</h2>
+    <pre id="EmulateOut"></pre>
+    <pre id="EmulatePC"></pre>
+    <pre id="EmulateReg"></pre>
+    <pre id="EmulateMem"></pre>
+    <pre id="EmulateStack"></pre>
 
     <script type="module">
         async function main() {
@@ -113,6 +122,18 @@ def argsLoad(tok:Literal | Register, types:type[Register] | type[Literal] | None
         return format(tok.value & 0xff, '02x')
     if isinstance(tok, Register):
         return format(tok.number & 0xf, 'x')
+    raise TypeError(f"Unsupported token type: {type(tok).__name__}")
+
+def argsLoaem(tok:Literal | Register, types:type[Register] | type[Literal] | None = None):
+    # 型チェック: 指定された types があれば、その型と一致しない場合は明示的に例外を出す
+    if types is not None and type(tok) is not types:
+        raise TypeError(f"argsLoad expected {types.__name__}, got {type(tok).__name__}")
+    # 値を返す: Literal は 8bit、Register は 4bit を想定して 16進で返す
+    if isinstance(tok, Literal):
+        # 2桁の16進（ゼロパディング）
+        return tok.value & 0xff
+    if isinstance(tok, Register):
+        return tok.number & 0xf
     raise TypeError(f"Unsupported token type: {type(tok).__name__}")
 
 def conversion(Tokens:list[Token], mode:int):
@@ -237,8 +258,8 @@ def conversion(Tokens:list[Token], mode:int):
 """
 ADD r1 , r2 , r3      ; r1 = r2 + r3
 SUB r1 , r2 , r3      ; r1 = r2 - r3
-ADDI r1 , n2          ; r1 = r2 + nn
-SUBI r1 , n2          ; r1 = r2 - nn
+ADDI r1 , n2          ; r1 = r1 + nn
+SUBI r1 , n2          ; r1 = r1 - nn
 NAND r1 , r2 , r3     ; r1 = nand( r2 , r3 )
 SHIFT r1 , r2 , r3    ; r1 = floor(r2 * 2 ^ ((1 - 2 * (r3 & 0b00001000) ) * r3))
 STORE r1 , r2 , r3    ; memory(r2 * 2 ^ 8 + r3) = r1
@@ -248,25 +269,242 @@ TIMER r1 , r2 , r3    ; r1 時間待機した後に r2 * 2 ^ 8 + r3 にジャン
 RET                   ; サブルーチンを終了しサブルーチン実行前に戻る
 HALT                  ; 停止
 """
-def analyze(text: str, mode:str) -> str:
+parsed:list[Token] = []
+now:dict[str, list[int]] = {"Reg":[0,]*16, "mem":[0,]*0x100, "pc":[0], "Stack":[], "flag":[0,0,0]}
+nextflag = 0
+runtime = True
+
+def analyze(text: str) -> None:
+    global parsed
     lexed = lexer(text)
     parsed = parse(lexed)
+    
+def conv(mode:str) -> str:
+    global parsed
     res = conversion(parsed, int(mode))
     return res
+
+def Reset():
+    global now
+    now = {"Reg":[0,]*16, "mem":[0,]*0x100, "pc":[0], "Stack":[], "flag":[0,0,0]} # C Z A
+
+def car(number:int):
+    if (number&0b1000_0000)/128 == 0:
+        return number&0b0111_1111
+    return (number&0b0111_1111) -128
+
+def Emulate():
+    global parsed, now, nextflag, runtime
+    if nextflag != 0:
+        nextflag -= 1
+        return "wait... calling", now
+    if not runtime:
+        return "runtime is end", now, nextflag, runtime
+    pas:Token = parsed[now["pc"][0]]
+    now["pc"][0]+=1
+    match (pas.name.upper()):
+        case "ADD":
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[1], Register)] + now["Reg"][argsLoaem(pas.order[2], Register)]
+            if (now["Reg"][argsLoaem(pas.order[0], Register)]//256 != 0):
+                now["flag"][0] = 1
+            else:
+                now["flag"][0] = 0
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[0], Register)]%256
+            if now["Reg"][argsLoaem(pas.order[0], Register)] == 0:
+                now["flag"][1] = 1
+            else:
+                now["flag"][1] = 0
+            if car(now["Reg"][argsLoaem(pas.order[1], Register)]) >= car(now["Reg"][argsLoaem(pas.order[2], Register)]):
+                now["flag"][2] = 1
+            else:
+                now["flag"][2] = 0
+        case "SUB":
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[1], Register)] - now["Reg"][argsLoaem(pas.order[2], Register)]
+            if (now["Reg"][argsLoaem(pas.order[0], Register)]//256 != 0):
+                now["flag"][0] = 1
+            else:
+                now["flag"][0] = 0
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[0], Register)]%256
+            if now["Reg"][argsLoaem(pas.order[0], Register)] == 0:
+                now["flag"][1] = 1
+            else:
+                now["flag"][1] = 0
+            if car(now["Reg"][argsLoaem(pas.order[1], Register)]) >= car(now["Reg"][argsLoaem(pas.order[2], Register)]):
+                now["flag"][2] = 1
+            else:
+                now["flag"][2] = 0
+        case "ADDI":
+            now["Reg"][argsLoaem(pas.order[0], Register)] += argsLoaem(pas.order[1], Literal)
+            if (now["Reg"][argsLoaem(pas.order[0], Register)]//256 != 0):
+                now["flag"][0] = 1
+            else:
+                now["flag"][0] = 0
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[0], Register)]%256
+            if now["Reg"][argsLoaem(pas.order[0], Register)] == 0:
+                now["flag"][1] = 1
+            else:
+                now["flag"][1] = 0
+            now["flag"][2] = 0
+        case "SUBI":
+            now["Reg"][argsLoaem(pas.order[0], Register)] -= argsLoaem(pas.order[1], Literal)
+            if (now["Reg"][argsLoaem(pas.order[0], Register)]//256 != 0):
+                now["flag"][0] = 1
+            else:
+                now["flag"][0] = 0
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[0], Register)]%256
+            if now["Reg"][argsLoaem(pas.order[0], Register)] == 0:
+                now["flag"][1] = 1
+            else:
+                now["flag"][1] = 0
+            now["flag"][2] = 0
+        case "NAND":
+            now["Reg"][argsLoaem(pas.order[0], Register)] = ~(now["Reg"][argsLoaem(pas.order[1], Register)] ^ now["Reg"][argsLoaem(pas.order[2], Register)])
+            if (now["Reg"][argsLoaem(pas.order[0], Register)]//256 != 0):
+                now["flag"][0] = 1
+            else:
+                now["flag"][0] = 0
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[0], Register)]%256
+            if now["Reg"][argsLoaem(pas.order[0], Register)] == 0:
+                now["flag"][1] = 1
+            else:
+                now["flag"][1] = 0
+            if car(now["Reg"][argsLoaem(pas.order[1], Register)]) >= car(now["Reg"][argsLoaem(pas.order[2], Register)]):
+                now["flag"][2] = 1
+            else:
+                now["flag"][2] = 0
+        case "SHIFT":
+            if type(pas.order[2]) != Literal:
+                raise RuntimeError("shift-2 is got literal")
+            if pas.order[2].value & 0b1000 == 0:
+                now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[1], Register)] << (pas.order[2].value & 0b0111+1)
+            else:
+                now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[1], Register)] >> (pas.order[2].value & 0b0111+1)
+            
+            if (now["Reg"][argsLoaem(pas.order[0], Register)]//256 != 0):
+                now["flag"][0] = 1
+            else:
+                now["flag"][0] = 0
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[0], Register)]%256
+            if now["Reg"][argsLoaem(pas.order[0], Register)] == 0:
+                now["flag"][1] = 1
+            else:
+                now["flag"][1] = 0
+            if car(now["Reg"][argsLoaem(pas.order[1], Register)]) >= car(now["Reg"][argsLoaem(pas.order[2], Register)]):
+                now["flag"][2] = 1
+            else:
+                now["flag"][2] = 0
+        case "STORE":
+            now["mem"][now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]] = now["Reg"][argsLoaem(pas.order[0], Register)]
+        case "LOAD":
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["mem"][now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]]
+        case "BRANCH":
+            if type(pas.order[0]) != Literal:
+                raise RuntimeError("shift-0 is got literal")
+            match (pas.order[0].value & 0xf):
+                case 0:
+                    pass
+                case 1:
+                    now["pc"][0] = now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]
+                case 2:
+                    if now["flag"][0] == 0:
+                        now["pc"][0] = now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]
+                case 3:
+                    if now["flag"][0] != 0:
+                        now["pc"][0] = now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]
+                case 4:
+                    if now["flag"][1] == 0:
+                        now["pc"][0] = now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]
+                case 5:
+                    if now["flag"][1] != 0:
+                        now["pc"][0] = now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]
+                case 6:
+                    if now["flag"][2] == 0:
+                        now["pc"][0] = now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]
+                case 7:
+                    if now["flag"][2] != 0:
+                        now["pc"][0] = now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]
+                case _:
+                    raise RuntimeError("unkown Number")
+        case "TIMER":
+            nextflag = now["Reg"][argsLoaem(pas.order[0], Register)]
+            now["Stack"].append(now["pc"][0])
+            now["pc"][0] = now["Reg"][argsLoaem(pas.order[1], Register)] * 0x100 + now["Reg"][argsLoaem(pas.order[2], Register)]
+        case "RET":
+            now["pc"][0] = now["Stack"].pop(-1)
+        case "PC":
+            now["Reg"][argsLoaem(pas.order[0], Register)] = now["pc"][0]& 0xff00
+            now["Reg"][argsLoaem(pas.order[1], Register)] = now["pc"][0]& 0x00ff
+        case "HALT":
+            runtime = False
+        case _:
+            return "Error! unkwonCode", now
+    now["Reg"][0] = 0 # RZ is zero
+    return pas.__repr__(), now
+
 `;
 
             await pyodide.runPythonAsync(pythonCode);
 
-            document.getElementById("run").onclick = async () => {
+            function text32(liststring) {
+                let res = ""
+                for (let i = 0; i < liststring.length; i++) {
+                    res += liststring[i];
+                    if (i%32 == 31) {
+                        // ええ
+                        res += "\n";
+                    } else {
+                        res += ", "
+                    }
+                }
+                return res;
+            }
+
+            document.getElementById("ana").onclick = async () => {
                 const text = document.getElementById("input").value;
-                const mode = parseInt(document.getElementById("mode").value) || 0;
                 try {
                     pyodide.globals.set("user_input", text);
+                    const result = await pyodide.runPythonAsync("analyze(user_input)");
+                } catch (err) {
+                    document.getElementById("output").textContent = "⚠️ エラー: " + err;
+                }
+            };
+            document.getElementById("run").onclick = async () => {
+                const mode = parseInt(document.getElementById("mode").value) || 0;
+                try {
                     pyodide.globals.set("mode", mode);
-                    const result = await pyodide.runPythonAsync("analyze(user_input, mode)");
+                    const result = await pyodide.runPythonAsync("conv(mode)");
                     document.getElementById("output").textContent = result;
                 } catch (err) {
                     document.getElementById("output").textContent = "⚠️ エラー: " + err;
+                }
+            };
+            document.getElementById("Reset").onclick = async () => {
+                try {
+                    const result = await pyodide.runPythonAsync("Reset()");
+                } catch (err) {
+                    document.getElementById("EmulateOut").textContent = "⚠️ エラー: " + err;
+                }
+            };
+            // emureat
+            document.getElementById("Emulate").onclick = async () => {
+                try {
+                    const res = await pyodide.runPythonAsync("Emulate()");
+                    const result = res.toJs({ deep: true });
+                    console.log(result[0]);
+                    console.log(document.getElementById("EmulateOut"));
+                    const restext = result[0];
+                    const cpu = result[1];
+                    const pc = cpu.get("pc")[0];
+                    const Reg = cpu.get("Reg");
+                    const mem = cpu.get("mem");
+                    const Stack = cpu.get("Stack");
+                    document.getElementById("EmulateOut").textContent = restext;
+                    document.getElementById("EmulatePC").textContent = pc;
+                    document.getElementById("EmulateReg").textContent = Reg.join(", ");
+                    document.getElementById("EmulateMem").textContent = text32(mem);
+                    document.getElementById("EmulateStack").textContent = Stack.join(", ");
+                } catch (err) {
+                    document.getElementById("EmulateOut").textContent = "⚠️ エラー: " + err;
                 }
             };
         }
