@@ -68,7 +68,7 @@ LOAD r1, r2, r3    7 | r1 | r2 | r3 |   LOAD。メモリ読み込み。r1にr2 *
 BRANCH nn, r1, r2  8 | nn | r1 | r2 |   条件分岐。nnによって挙動が変わります。条件が満たされるとr1 * 0x100 + r2にジャンプします。
 TIMER r1, r2, r3   9 | r1 | r2 | r3 |   サブルーチン呼び出し命令。r1の時間だけクロックを停止させ、r2 * 0x100 + r3のサブルーチンを実行します。
 RET                A | 00 |   DONT  |   サブルーチン呼び出し元に戻ります。
-PC r1,r2           A | 01 | r1 | r2 |   Pcの値をr1とr2に書き込みます。
+PC r1,r2           A | 01 | r1 | r2 |   PCの値をr1とr2に書き込みます。
 HALT               A | 0F |   DONT  |   CPUを停止させます
 フラグ:
 0:常に偽
@@ -494,9 +494,9 @@ def Emulate():
             if type(pas.order[2]) != Literal:
                 raise RuntimeError("shift-2 is got literal")
             if pas.order[2].value & 0b1000 == 0:
-                now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[1], Register)] << (pas.order[2].value & 0b0111+1)
+                now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[1], Register)] << ((pas.order[2].value & 0b0111)+1)
             else:
-                now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[1], Register)] >> (pas.order[2].value & 0b0111+1)
+                now["Reg"][argsLoaem(pas.order[0], Register)] = now["Reg"][argsLoaem(pas.order[1], Register)] >> ((pas.order[2].value & 0b0111)+1)
             
             if (now["Reg"][argsLoaem(pas.order[0], Register)]//256 != 0):
                 now["flag"][0] = 1
