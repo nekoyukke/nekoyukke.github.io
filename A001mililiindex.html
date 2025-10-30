@@ -6,23 +6,68 @@
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
     <style>
         body { font-family: sans-serif; margin: 40px; background: #fafafa; }
-        textarea, input { width: 100%; margin-top: 8px; padding: 8px; }
+        .textareas, input { width: 100%; margin-top: 8px; padding: 8px; }
         pre { background: #eee; padding: 12px; border-radius: 8px; }
         button { padding: 8px 16px; margin-top: 12px; cursor: pointer; }
+        .editor {
+            display: flex;
+            width: 600px;
+            height: 300px;
+            border: 1px solid #dadada;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .line-numbers {
+            background: #dadada;
+            color: #191919;
+            padding: 8px 6px;
+            text-align: right;
+            user-select: none;
+            white-space: pre;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.4em;
+            border-right: 1px solid fafafa;
+            overflow: hidden;
+        }
+
+        .text {
+            flex: 1;
+            border: none;
+            resize: none;
+            outline: none;
+            background: #fafafa;
+            color: #1e1e1e;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.4em;
+            padding: 8px;
+            overflow: auto;
+        }
+
+        .text::-webkit-scrollbar {
+            width: 10px;
+        }
     </style>
 </head>
 <body>
     <h1>🔍 Pythonで入力解析</h1>
     <p>テキストを入力して解析してみよう：</p>
-    <textarea id="input" rows="20" placeholder="例: NAND r1,r0,r0
+    <div class="editor">
+        <div id="lines" class="line-numbers">0</div>
+        <textarea class="text" spellcheck="false" id="input" rows="20" placeholder="例:
+NAND r1,r0,r0
 NAND r2,r0,r0
 NAND r1,r0,r0
 ADDI r1,39
 ADDI r2,39
 ADD r3,r1,r2"></textarea>
-    <textarea id="mode" rows="1" placeholder="0:バイナリ 1:コンマ付き 2:改行付き"></textarea>
+    </div>
+    <textarea class="textareas" id="mode" rows="1" placeholder="0:バイナリ 1:コンマ付き 2:改行付き"></textarea>
     <button id="ana">解析</button>
-    <button id="run">変換</button>
+    <button id="run">変換(16進数)</button>
+    <button id="bitrun">解析(2進数)</button>
     <h2>結果:</h2>
     <pre id="output"></pre>
     <button id="Emulate">エミュレート</button>
@@ -270,9 +315,16 @@ RET                   ; サブルーチンを終了しサブルーチン実行�
 HALT                  ; 停止
 """
 parsed:list[Token] = []
-now:dict[str, list[int]] = {"Reg":[0,]*16, "mem":[0,]*0x100, "pc":[0], "Stack":[], "flag":[0,0,0]}
+now:dict[str, list[int]] = {"Reg":[0,]*16, "mem":[0,]*0xff, "pc":[0], "Stack":[], "flag":[0,0,0]}
 nextflag = 0
 runtime = True
+
+def is_hex(s:str):
+    try:
+        int(s, 16)
+        return True
+    except ValueError:
+        return False
 
 def analyze(text: str) -> None:
     global parsed
@@ -283,6 +335,12 @@ def conv(mode:str) -> str:
     global parsed
     res = conversion(parsed, int(mode))
     return res
+
+def bitconv(mode:str) -> str:
+    global parsed
+    res = conversion(parsed, int(mode))
+    lres = [bin(int(i, 16))[2:].zfill(4) + "_" if is_hex(i) else i for i in res]
+    return "".join(lres)
 
 def Reset():
     global now
@@ -389,7 +447,7 @@ def Emulate():
                 now["flag"][1] = 1
             else:
                 now["flag"][1] = 0
-            if car(now["Reg"][argsLoaem(pas.order[1], Register)]) >= car(now["Reg"][argsLoaem(pas.order[2], Register)]):
+            if car(now["Reg"][argsLoaem(pas.order[1], Register)]) >= car(now["Reg"][argsLoaem(pas.order[2], Literal)]):
                 now["flag"][2] = 1
             else:
                 now["flag"][2] = 0
@@ -440,7 +498,6 @@ def Emulate():
             return "Error! unkwonCode", now
     now["Reg"][0] = 0 # RZ is zero
     return pas.__repr__(), now
-
 `;
 
             await pyodide.runPythonAsync(pythonCode);
@@ -464,6 +521,16 @@ def Emulate():
                 try {
                     pyodide.globals.set("user_input", text);
                     const result = await pyodide.runPythonAsync("analyze(user_input)");
+                } catch (err) {
+                    document.getElementById("output").textContent = "⚠️ エラー: " + err;
+                }
+            };
+            document.getElementById("bitrun").onclick = async () => {
+                const mode = parseInt(document.getElementById("mode").value) || 0;
+                try {
+                    pyodide.globals.set("mode", mode);
+                    const result = await pyodide.runPythonAsync("bitconv(mode)");
+                    document.getElementById("output").textContent = result;
                 } catch (err) {
                     document.getElementById("output").textContent = "⚠️ エラー: " + err;
                 }
@@ -494,7 +561,7 @@ def Emulate():
                     console.log(document.getElementById("EmulateOut"));
                     const restext = result[0];
                     const cpu = result[1];
-                    const pc = cpu.get("pc")[0];
+                    const pc = cpu.get("pc")[0] - 1;
                     const Reg = cpu.get("Reg");
                     const mem = cpu.get("mem");
                     const Stack = cpu.get("Stack");
@@ -509,6 +576,20 @@ def Emulate():
             };
         }
         main();
+        const code = document.getElementById("input");
+        const lines = document.getElementById("lines");
+
+        function updateLineNumbers() {
+            const lineCount = code.value.split("\n").length;
+            lines.textContent = Array.from({ length: lineCount }, (_, i) => i).join("\n");
+        }
+
+        code.addEventListener("input", updateLineNumbers);
+        code.addEventListener("scroll", () => {
+            lines.scrollTop = code.scrollTop;
+        });
+
+        updateLineNumbers();
     </script>
 </body>
 </html>
